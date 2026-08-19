@@ -6,3 +6,4 @@ node_modules
 .venv
 /mds
 
+/rpi-codes/__pycache__
