@@ -14,7 +14,7 @@ from gps import GPSSensor
 # e.g., "https://your-app-name.vercel.app/api/sensors/data"
 API_URL = "https://dhrististick.vercel.app/api/sensors/data"
 SOURCE_NAME = "rpi-drishti"
-UPLOAD_INTERVAL_SECONDS = 2.0
+UPLOAD_INTERVAL_SECONDS = 7.0
 # ---------------------
 
 # Global instances so they can be cleaned up

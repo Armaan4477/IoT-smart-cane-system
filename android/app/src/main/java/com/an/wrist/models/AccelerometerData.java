@@ -1,0 +1,49 @@
+package com.an.wrist.models;
+
+import com.google.gson.annotations.SerializedName;
+
+public class AccelerometerData {
+    @SerializedName("x")
+    private double x;
+    
+    @SerializedName("y")
+    private double y;
+    
+    @SerializedName("z")
+    private double z;
+    
+    // Getters and setters
+    public double getX() {
+        return x;
+    }
+    
+    public void setX(double x) {
+        this.x = x;
+    }
+    
+    public double getY() {
+        return y;
+    }
+    
+    public void setY(double y) {
+        this.y = y;
+    }
+    
+    public double getZ() {
+        return z;
+    }
+    
+    public void setZ(double z) {
+        this.z = z;
+    }
+    
+    // Helper method to get magnitude
+    public double getMagnitude() {
+        return Math.sqrt(x * x + y * y + z * z);
+    }
+    
+    @Override
+    public String toString() {
+        return "x: " + x + ", y: " + y + ", z: " + z;
+    }
+}

@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginStart="16dp"
+    android:layout_marginEnd="16dp"
+    android:layout_marginTop="8dp"
+    android:layout_marginBottom="8dp"
+    app:cardCornerRadius="16dp"
+    app:cardElevation="0dp"
+    app:strokeWidth="0dp"
+    android:backgroundTint="@color/colorCard">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="20dp">
+
+        <!-- Icon and Title Section -->
+        <View
+            android:id="@+id/sensorIconBackground"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="@drawable/sensor_icon_background"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <TextView
+            android:id="@+id/sensorIcon"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:gravity="center"
+            android:text="📊"
+            android:textSize="24sp"
+            app:layout_constraintStart_toStartOf="@id/sensorIconBackground"
+            app:layout_constraintTop_toTopOf="@id/sensorIconBackground"
+            app:layout_constraintBottom_toBottomOf="@id/sensorIconBackground"
+            app:layout_constraintEnd_toEndOf="@id/sensorIconBackground" />
+
+        <TextView
+            android:id="@+id/sensorTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:textColor="@color/colorText"
+            app:layout_constraintStart_toEndOf="@id/sensorIconBackground"
+            app:layout_constraintTop_toTopOf="@id/sensorIconBackground"
+            app:layout_constraintEnd_toStartOf="@id/statusIndicator"
+            tools:text="Accelerometer" />
+
+        <TextView
+            android:id="@+id/sensorSubtitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="4dp"
+            android:textSize="12sp"
+            android:textColor="@color/colorTextSecondary"
+            app:layout_constraintStart_toEndOf="@id/sensorIconBackground"
+            app:layout_constraintTop_toBottomOf="@id/sensorTitle"
+            app:layout_constraintEnd_toStartOf="@id/statusIndicator"
+            tools:text="Motion Sensor" />
+
+        <View
+            android:id="@+id/statusIndicator"
+            android:layout_width="8dp"
+            android:layout_height="8dp"
+            android:background="@drawable/status_indicator"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="@id/sensorTitle"
+            app:layout_constraintBottom_toBottomOf="@id/sensorTitle" />
+
+        <!-- Values Section -->
+        <TextView
+            android:id="@+id/sensorValues"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:textSize="16sp"
+            android:textColor="@color/colorText"
+            android:fontFamily="monospace"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/sensorIconBackground"
+            tools:text="x: 0.23, y: 0.54, z: 9.81" />
+
+        <!-- Chart Section -->
+        <com.github.mikephil.charting.charts.LineChart
+            android:id="@+id/sensorChart"
+            android:layout_width="0dp"
+            android:layout_height="140dp"
+            android:layout_marginTop="16dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/sensorValues" />
+
+        <!-- Detail Button -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/detailButton"
+            style="@style/Widget.Material3.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="12dp"
+            android:text="@string/view_details"
+            android:textSize="14sp"
+            android:textAllCaps="false"
+            app:icon="@android:drawable/ic_menu_view"
+            app:iconGravity="textStart"
+            app:iconSize="18dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/sensorChart" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</com.google.android.material.card.MaterialCardView>
