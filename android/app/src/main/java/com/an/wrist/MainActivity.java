@@ -1,9 +1,12 @@
 package com.an.wrist;
 
 import android.Manifest;
+import android.bluetooth.BluetoothAdapter;
 import android.content.ActivityNotFoundException;
+import android.content.BroadcastReceiver;
+import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.speech.tts.TextToSpeech;
 import android.speech.RecognizerIntent;
@@ -45,6 +48,7 @@ import com.an.wrist.models.GPSData;
 import com.an.wrist.models.GyroscopeData;
 import com.an.wrist.models.SensorData;
 import com.an.wrist.service.AccelerometerMonitorService;
+import com.an.wrist.service.BluetoothService;
 import com.an.wrist.viewmodel.SensorViewModel;
 import com.github.mikephil.charting.charts.LineChart;
 import com.github.mikephil.charting.components.XAxis;
@@ -54,12 +58,6 @@ import com.github.mikephil.charting.data.LineData;
 import com.github.mikephil.charting.data.LineDataSet;
 import com.google.android.material.button.MaterialButton;
 
-import org.json.JSONObject;
-
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
@@ -70,6 +68,7 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
 
     private static final int NOTIFICATION_PERMISSION_REQUEST_CODE = 2001;
     private static final int MICROPHONE_PERMISSION_REQUEST_CODE = 2002;
+    private static final int BLUETOOTH_PERMISSION_REQUEST_CODE = 2003;
     private static final long DASHBOARD_HOLD_DURATION_MS = 4000L;
     private static final long VOICE_PROMPT_DELAY_MS = 2200L;
     private static final long HOLD_COUNTDOWN_TICK_MS = 120L;
@@ -111,19 +110,11 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
     private Runnable refreshRunnable;
     private static final long REFRESH_INTERVAL = 7000; // 7 seconds
 
-    // Python navigation output handling (separate from sensor/API flow)
-    private static final long PYTHON_POLL_INTERVAL_MS = 1000;
-    private static final int PYTHON_OUTPUT_PORT = 8765;
-    private static final String PYTHON_PREFS = "python_navigation_prefs";
-    private static final String PYTHON_HOST_KEY = "python_host_ip";
-    private Handler pythonSpeechHandler;
-    private Runnable pythonSpeechRunnable;
+    // Bluetooth command receiver — replaces the previous HTTP polling loop
+    private BroadcastReceiver bluetoothCommandReceiver;
     private TextToSpeech textToSpeech;
     private boolean ttsReady = false;
-    private String pythonHostIp = "";
     private String lastSpokenCommand = "";
-    private TextView pythonHostIpText;
-    private MaterialButton pythonHostIpButton;
 
     // Voice entry mode (4-second hold anywhere on dashboard)
     private Handler voiceEntryHandler;
@@ -187,10 +178,10 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
             }
         });
 
-        // Initialize text-to-speech and separate Python polling loop
+        // Initialize text-to-speech and Bluetooth command receiver
         textToSpeech = new TextToSpeech(this, this);
         vibrator = (Vibrator) getSystemService(VIBRATOR_SERVICE);
-        setupPythonSpeechLoop();
+        setupBluetoothReceiver();
         setupVoiceDestinationRecognizer();
         setupDashboardVoiceHoldGesture();
         
@@ -215,6 +206,24 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
                     this,
                     new String[]{android.Manifest.permission.POST_NOTIFICATIONS},
                     NOTIFICATION_PERMISSION_REQUEST_CODE
+            );
+        }
+    }
+
+    private boolean hasBluetoothPermissions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            return ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED &&
+                   ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED;
+        }
+        return true;
+    }
+
+    private void requestBluetoothPermissions() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            ActivityCompat.requestPermissions(
+                    this,
+                    new String[]{Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.BLUETOOTH_SCAN},
+                    BLUETOOTH_PERMISSION_REQUEST_CODE
             );
         }
     }
@@ -248,7 +257,12 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         if (refreshHandler != null && refreshRunnable != null) {
             refreshHandler.postDelayed(refreshRunnable, REFRESH_INTERVAL);
         }
-        startPythonSpeechLoop();
+        registerBluetoothReceiver();
+        if (hasBluetoothPermissions()) {
+            startBluetoothService();
+        } else {
+            requestBluetoothPermissions();
+        }
     }
     
     @Override
@@ -259,7 +273,7 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
             refreshHandler.removeCallbacks(refreshRunnable);
         }
         cancelPendingVoiceEntryTrigger();
-        stopPythonSpeechLoop();
+        unregisterBluetoothReceiver();
     }
     
     @Override
@@ -270,7 +284,7 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
             refreshHandler.removeCallbacks(refreshRunnable);
         }
         cancelPendingVoiceEntryTrigger();
-        stopPythonSpeechLoop();
+        unregisterBluetoothReceiver();
         if (textToSpeech != null) {
             textToSpeech.stop();
             textToSpeech.shutdown();
@@ -284,22 +298,12 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         lastUpdatedText = findViewById(R.id.lastUpdatedText);
         statusText = findViewById(R.id.statusText);
         statusIndicator = findViewById(R.id.statusIndicator);
-        pythonHostIpText = findViewById(R.id.pythonHostIpText);
-        pythonHostIpButton = findViewById(R.id.pythonHostIpButton);
         voiceHoldOverlay = findViewById(R.id.voiceHoldOverlay);
         voiceHoldCountdownText = findViewById(R.id.voiceHoldCountdownText);
         voiceHoldHintText = findViewById(R.id.voiceHoldHintText);
 
         if (voiceHoldHintText != null) {
             voiceHoldHintText.setText(R.string.voice_hold_hint);
-        }
-
-        SharedPreferences prefs = getSharedPreferences(PYTHON_PREFS, MODE_PRIVATE);
-        pythonHostIp = prefs.getString(PYTHON_HOST_KEY, "");
-        updatePythonHostLabel();
-        if (pythonHostIpButton != null) {
-            pythonHostIpButton.setText(R.string.python_host_button);
-            pythonHostIpButton.setOnClickListener(v -> showPythonHostDialog());
         }
         
         // Accelerometer card
@@ -357,21 +361,49 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         // to avoid NullPointerException
     }
 
-    private void setupPythonSpeechLoop() {
-        pythonSpeechHandler = new Handler(Looper.getMainLooper());
-        pythonSpeechRunnable = new Runnable() {
+    private void setupBluetoothReceiver() {
+        bluetoothCommandReceiver = new BroadcastReceiver() {
             @Override
-            public void run() {
-                pollPythonNavigationOutput();
-                pythonSpeechHandler.postDelayed(this, PYTHON_POLL_INTERVAL_MS);
+            public void onReceive(Context context, Intent intent) {
+                if (BluetoothService.ACTION_COMMAND_RECEIVED.equals(intent.getAction())) {
+                    String command = intent.getStringExtra(BluetoothService.EXTRA_COMMAND);
+                    if (command != null && !command.isEmpty()) {
+                        // Show a temporary visual Toast for debugging so we know it arrived
+                        Toast.makeText(context, "Command Received: " + command, Toast.LENGTH_SHORT).show();
+                        speakCommandIfChanged(command);
+                    }
+                }
             }
         };
     }
 
-    private void startPythonSpeechLoop() {
-        if (pythonSpeechHandler != null && pythonSpeechRunnable != null) {
-            pythonSpeechHandler.removeCallbacks(pythonSpeechRunnable);
-            pythonSpeechHandler.post(pythonSpeechRunnable);
+    private void registerBluetoothReceiver() {
+        if (bluetoothCommandReceiver != null) {
+            IntentFilter filter = new IntentFilter(BluetoothService.ACTION_COMMAND_RECEIVED);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(bluetoothCommandReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+            } else {
+                registerReceiver(bluetoothCommandReceiver, filter);
+            }
+        }
+    }
+
+    private void unregisterBluetoothReceiver() {
+        if (bluetoothCommandReceiver != null) {
+            try {
+                unregisterReceiver(bluetoothCommandReceiver);
+            } catch (IllegalArgumentException ignored) {
+                // Receiver was not registered — safe to ignore
+            }
+        }
+    }
+
+    private void startBluetoothService() {
+        Intent serviceIntent = new Intent(this, BluetoothService.class);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            ContextCompat.startForegroundService(this, serviceIntent);
+        } else {
+            startService(serviceIntent);
         }
     }
 
@@ -560,56 +592,7 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
                 .show();
     }
 
-    private void stopPythonSpeechLoop() {
-        if (pythonSpeechHandler != null && pythonSpeechRunnable != null) {
-            pythonSpeechHandler.removeCallbacks(pythonSpeechRunnable);
-        }
-    }
 
-    private void pollPythonNavigationOutput() {
-        if (pythonHostIp == null || pythonHostIp.trim().isEmpty()) {
-            return;
-        }
-
-        final String host = pythonHostIp.trim();
-        new Thread(() -> {
-            HttpURLConnection connection = null;
-            try {
-                URL url = new URL("http://" + host + ":" + PYTHON_OUTPUT_PORT + "/navigation_command");
-                connection = (HttpURLConnection) url.openConnection();
-                connection.setRequestMethod("GET");
-                connection.setConnectTimeout(800);
-                connection.setReadTimeout(800);
-
-                int responseCode = connection.getResponseCode();
-                if (responseCode != HttpURLConnection.HTTP_OK) {
-                    return;
-                }
-
-                BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
-                StringBuilder responseBuilder = new StringBuilder();
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    responseBuilder.append(line);
-                }
-                reader.close();
-
-                JSONObject json = new JSONObject(responseBuilder.toString());
-                String command = json.optString("command", "").trim();
-                if (command.isEmpty()) {
-                    return;
-                }
-
-                runOnUiThread(() -> speakCommandIfChanged(command));
-            } catch (Exception ignored) {
-                // Keep this loop isolated; failures should not affect sensor/API flow.
-            } finally {
-                if (connection != null) {
-                    connection.disconnect();
-                }
-            }
-        }).start();
-    }
 
     private void speakCommandIfChanged(String command) {
         if (!ttsReady || textToSpeech == null) {
@@ -640,48 +623,7 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
         }
     }
 
-    private void showPythonHostDialog() {
-        EditText input = new EditText(this);
-        input.setInputType(InputType.TYPE_CLASS_TEXT);
-        input.setHint(R.string.python_host_dialog_hint);
-        input.setText(pythonHostIp);
-        input.setSelection(input.getText().length());
 
-        new androidx.appcompat.app.AlertDialog.Builder(this)
-                .setTitle(R.string.python_host_dialog_title)
-                .setView(input)
-                .setPositiveButton(R.string.python_host_dialog_save, (dialog, which) -> {
-                    String enteredIp = input.getText().toString().trim();
-                    if (enteredIp.isEmpty()) {
-                        Toast.makeText(this, R.string.python_host_empty_error, Toast.LENGTH_SHORT).show();
-                        return;
-                    }
-
-                    pythonHostIp = enteredIp;
-                    getSharedPreferences(PYTHON_PREFS, MODE_PRIVATE)
-                            .edit()
-                            .putString(PYTHON_HOST_KEY, pythonHostIp)
-                            .apply();
-
-                    lastSpokenCommand = "";
-                    updatePythonHostLabel();
-                    Toast.makeText(this, R.string.python_host_saved, Toast.LENGTH_SHORT).show();
-                })
-                .setNegativeButton(R.string.python_host_dialog_cancel, null)
-                .show();
-    }
-
-    private void updatePythonHostLabel() {
-        if (pythonHostIpText == null) {
-            return;
-        }
-
-        if (pythonHostIp == null || pythonHostIp.trim().isEmpty()) {
-            pythonHostIpText.setText(R.string.python_host_not_set);
-        } else {
-            pythonHostIpText.setText(getString(R.string.python_host_set, pythonHostIp.trim()));
-        }
-    }
 
     @Override
     public void onInit(int status) {
@@ -741,6 +683,7 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
                 break;
         }
     }
+
     
     private void setupChart(LineChart chart, int color) {
         chart.getDescription().setEnabled(false);
@@ -1041,6 +984,12 @@ public class MainActivity extends AppCompatActivity implements TextToSpeech.OnIn
             } else {
                 Toast.makeText(this, R.string.voice_permission_required, Toast.LENGTH_SHORT).show();
                 showManualDestinationDialog();
+            }
+        } else if (requestCode == BLUETOOTH_PERMISSION_REQUEST_CODE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                startBluetoothService();
+            } else {
+                Toast.makeText(this, "Bluetooth permission required for Drishti Stick", Toast.LENGTH_LONG).show();
             }
         }
     }
