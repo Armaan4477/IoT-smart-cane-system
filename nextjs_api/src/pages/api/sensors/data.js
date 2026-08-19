@@ -1,4 +1,4 @@
-// API endpoint to handle ESP32 sensor data
+// API endpoint to handle sensor data
 import db from '../../../lib/firebase-admin';
 import { format } from 'date-fns';
 import {
@@ -52,7 +52,7 @@ export default async function handler(req, res) {
     await db.ref(DEVICE_HEALTH_PATH).set({
       lastPingAt: timestamp,
       lastPingIso: now.toISOString(),
-      source: sensorData.source || 'esp32-cam',
+      source: sensorData.source || 'rpi-drishti',
       pingIntervalMs: HEALTH_PING_INTERVAL_MS,
       timeoutMs: HEALTH_TIMEOUT_MS,
       updatedAt: timestamp,

@@ -3,35 +3,41 @@
 import time
 from gpiozero import DistanceSensor
 
-TRIG_PIN = 23
-ECHO_PIN = 24
+class UltrasonicSensor:
+    def __init__(self, trig_pin=23, echo_pin=24):
+        self.sensor = DistanceSensor(
+            trigger=trig_pin,
+            echo=echo_pin,
+            max_distance=4.0,
+            queue_len=1
+        )
 
-sensor = DistanceSensor(
-    trigger=TRIG_PIN,
-    echo=ECHO_PIN,
-    max_distance=4.0,
-    queue_len=1
-)
+    def get_distance_cm(self):
+        return self.sensor.distance * 100
 
-print("===================================")
-print("       HC-SR04 ULTRASONIC TEST")
-print("===================================")
-print("Press CTRL+C to stop.\n")
+    def close(self):
+        self.sensor.close()
 
-try:
-    while True:
+if __name__ == "__main__":
+    print("===================================")
+    print("       HC-SR04 ULTRASONIC TEST")
+    print("===================================")
+    print("Press CTRL+C to stop.\n")
 
-        distance_cm = sensor.distance * 100
+    us = UltrasonicSensor()
+    try:
+        while True:
+            distance_cm = us.get_distance_cm()
 
-        if distance_cm >= 400:
-            print("Distance: OUT OF RANGE")
-        else:
-            print(f"Distance: {distance_cm:7.2f} cm")
+            if distance_cm >= 400:
+                print("Distance: OUT OF RANGE")
+            else:
+                print(f"Distance: {distance_cm:7.2f} cm")
 
-        time.sleep(0.5)
+            time.sleep(0.5)
 
-except KeyboardInterrupt:
-    print("\nStopping...")
+    except KeyboardInterrupt:
+        print("\nStopping...")
 
-finally:
-    sensor.close()
+    finally:
+        us.close()

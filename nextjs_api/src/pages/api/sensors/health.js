@@ -22,7 +22,7 @@ export default async function handler(req, res) {
     }
 
     const now = Date.now();
-    const source = (req.body && req.body.source) || 'esp32-cam';
+    const source = (req.body && req.body.source) || 'rpi-drishti';
 
     const payload = {
       lastPingAt: now,
