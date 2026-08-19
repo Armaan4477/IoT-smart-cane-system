@@ -13,7 +13,7 @@ import {
   get,
 } from 'firebase/database';
 import { db } from './firebase';
-import { KILL_SWITCH_ENABLED } from '../context/KillSwitchContext';
+import { KILL_SWITCH_ENABLED } from './kill-switch';
 import {
   DEVICE_HEALTH_PATH,
   HEALTH_TIMEOUT_MS,
@@ -132,9 +132,41 @@ export const subscribeToSensorData = (callback, limitCount = 20) => {
     const parsedTimestamp = Number(payload.timestamp);
     const timestampMs = Number.isFinite(parsedTimestamp) ? parsedTimestamp : 0;
 
+    // --- Normalize RPi (rpi-drishti) nested payload to flat UI fields ---
+    // RPi sends: distance_cm, mpu6050.accel.{x,y,z}, mpu6050.gyro.{x,y,z},
+    //            mpu6050.total_accel, gps.{lat,lon}
+    // UI expects: distance, accelX/Y/Z, gyroX/Y/Z, totalAccel, latitude, longitude, valid
+    const accel = payload.mpu6050?.accel ?? {};
+    const gyro  = payload.mpu6050?.gyro  ?? {};
+    const gps   = payload.gps ?? {};
+
+    const normalized = {
+      // Distance — prefer the flat field if present (legacy), else use distance_cm
+      distance:   payload.distance   ?? payload.distance_cm ?? null,
+      // Accelerometer
+      accelX:     accel.x ?? payload.accelX ?? null,
+      accelY:     accel.y ?? payload.accelY ?? null,
+      accelZ:     accel.z ?? payload.accelZ ?? null,
+      totalAccel: payload.mpu6050?.total_accel ?? payload.totalAccel ?? null,
+      // Gyroscope
+      gyroX:      gyro.x ?? payload.gyroX ?? null,
+      gyroY:      gyro.y ?? payload.gyroY ?? null,
+      gyroZ:      gyro.z ?? payload.gyroZ ?? null,
+      // GPS
+      latitude:   gps.lat ?? payload.latitude  ?? null,
+      longitude:  gps.lon ?? payload.longitude ?? null,
+      valid:      Boolean(gps.lat != null && gps.lon != null),
+      satellites: gps.satellites ?? payload.satellites ?? null,
+      // Other fields the UI might use
+      altitude:    payload.altitude    ?? null,
+      temperature: payload.temperature ?? null,
+    };
+    // -----------------------------------------------------------------------
+
     return {
       id: childSnapshot.key,
-      ...payload,
+      ...payload,   // keep the raw fields too (charts/table may use them)
+      ...normalized, // flat fields override nested ones for UI consumption
       timestampMs,
     };
   };
