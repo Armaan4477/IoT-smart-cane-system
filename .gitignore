@@ -7,3 +7,4 @@ node_modules
 /mds
 
 /rpi-codes/__pycache__
+/nextjs_api/.next
