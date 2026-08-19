@@ -16,6 +16,14 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed. Use GET.' });
   }
 
+  // Guard: Firebase Admin failed to initialize (likely missing Vercel env vars)
+  if (!db) {
+    return res.status(503).json({
+      error: 'Firebase not initialized',
+      message: 'Server configuration error — check FIREBASE_* environment variables on Vercel.',
+    });
+  }
+
   try {
     if (KILL_SWITCH_ENABLED) {
       console.warn('Firebase communication disabled by kill switch');

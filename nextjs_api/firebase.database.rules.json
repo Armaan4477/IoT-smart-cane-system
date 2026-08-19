@@ -1,36 +1,55 @@
 {
   "rules": {
-    ".read": true,
-    ".write": true,
+    ".read": false,
+    ".write": false,
     "sensor_data": {
       ".read": true,
       ".indexOn": ["timestamp", "serverTimestamp"],
       "$entryId": {
         ".write": true,
-        ".validate": "newData.hasChildren(['timestamp'])",
+        ".validate": "newData.hasChildren(['timestamp', 'serverTimestamp'])",
         "timestamp": {
           ".validate": "newData.isNumber() && newData.val() > 0"
         },
         "serverTimestamp": {
-          ".validate": "!newData.exists() || (newData.isNumber() && newData.val() > 0)"
+          ".validate": "newData.isNumber() && newData.val() > 0"
+        },
+        "receivedAt": {
+          ".validate": "newData.isString()"
+        },
+        "source": {
+          ".validate": "newData.isString()"
+        },
+        "distance_cm": {
+          ".validate": "!newData.exists() || newData.isNumber()"
+        },
+        "$other": {
+          ".validate": true
         }
       }
     },
     "device_health": {
+      ".read": true,
       "esp32_cam": {
-        ".read": true,
         ".write": true,
+        ".validate": "newData.hasChildren(['lastPingAt', 'updatedAt'])",
         "lastPingAt": {
           ".validate": "newData.isNumber() && newData.val() > 0"
         },
+        "lastPingIso": {
+          ".validate": "!newData.exists() || newData.isString()"
+        },
         "updatedAt": {
-          ".validate": "!newData.exists() || (newData.isNumber() && newData.val() > 0)"
+          ".validate": "newData.isNumber() && newData.val() > 0"
         },
         "pingIntervalMs": {
           ".validate": "!newData.exists() || (newData.isNumber() && newData.val() > 0)"
         },
         "timeoutMs": {
           ".validate": "!newData.exists() || (newData.isNumber() && newData.val() > 0)"
+        },
+        "source": {
+          ".validate": "!newData.exists() || newData.isString()"
         }
       }
     }
