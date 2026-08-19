@@ -5,7 +5,7 @@ import {
   HEALTH_TIMEOUT_MS,
   isDeviceOnline,
 } from '../../../lib/device-health';
-import { KILL_SWITCH_ENABLED } from '../../../context/KillSwitchContext';
+import { KILL_SWITCH_ENABLED } from '../../../lib/kill-switch';
 
 // Sensor data path in the Realtime Database
 const SENSOR_DATA_PATH = 'sensor_data';

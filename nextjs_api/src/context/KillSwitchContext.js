@@ -1,20 +1,10 @@
 // Kill Switch Context to control Firebase communication
 import { createContext, useContext } from 'react';
 
-const KillSwitchContext = createContext();
+// Import the shared constant — API routes import directly from lib/kill-switch.js
+// to avoid this file (which contains JSX) being loaded in a Node.js serverless context.
+export { KILL_SWITCH_ENABLED } from '../lib/kill-switch';
 
-export const useKillSwitch = () => {
-  const context = useContext(KillSwitchContext);
-  if (!context) {
-    throw new Error('useKillSwitch must be used within a KillSwitchProvider');
-  }
-  return context;
-};
-
-// ⚠️ HARDCODED KILL SWITCH VALUE - Change this value to control Firebase communication
-// Set to true to DISABLE all Firebase communication
-// Set to false to ENABLE all Firebase communication
-export const KILL_SWITCH_ENABLED = false;
 
 export const KillSwitchProvider = ({ children }) => {
   // Use the hardcoded value
