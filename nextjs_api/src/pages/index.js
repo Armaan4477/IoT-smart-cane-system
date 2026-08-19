@@ -153,9 +153,9 @@ export default function Home() {
   return (
     <DashboardLayout>
       <div className="mb-6">
-        <h2 className="text-2xl font-semibold mb-2">ESP32 Sensor Dashboard</h2>
+        <h2 className="text-2xl font-semibold mb-2">Raspberry Pi Sensor Dashboard</h2>
         <p className="text-gray-600">
-          Real-time sensor data from ESP32 device
+          Real-time sensor data from Raspberry Pi device
         </p>
         
         {/* Kill Switch Component */}
@@ -198,7 +198,7 @@ export default function Home() {
             {!latestData && isOnline && (
               <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 my-4">
                 <p>No sensor data available yet.</p>
-                <p>Make sure your ESP32 device is connected and sending data.</p>
+                <p>Make sure your Raspberry Pi device is connected and sending data.</p>
               </div>
             )}
             
