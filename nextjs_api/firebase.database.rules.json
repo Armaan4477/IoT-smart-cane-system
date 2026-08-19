@@ -1,0 +1,38 @@
+{
+  "rules": {
+    ".read": true,
+    ".write": true,
+    "sensor_data": {
+      ".read": true,
+      ".indexOn": ["timestamp", "serverTimestamp"],
+      "$entryId": {
+        ".write": true,
+        ".validate": "newData.hasChildren(['timestamp'])",
+        "timestamp": {
+          ".validate": "newData.isNumber() && newData.val() > 0"
+        },
+        "serverTimestamp": {
+          ".validate": "!newData.exists() || (newData.isNumber() && newData.val() > 0)"
+        }
+      }
+    },
+    "device_health": {
+      "esp32_cam": {
+        ".read": true,
+        ".write": true,
+        "lastPingAt": {
+          ".validate": "newData.isNumber() && newData.val() > 0"
+        },
+        "updatedAt": {
+          ".validate": "!newData.exists() || (newData.isNumber() && newData.val() > 0)"
+        },
+        "pingIntervalMs": {
+          ".validate": "!newData.exists() || (newData.isNumber() && newData.val() > 0)"
+        },
+        "timeoutMs": {
+          ".validate": "!newData.exists() || (newData.isNumber() && newData.val() > 0)"
+        }
+      }
+    }
+  }
+}

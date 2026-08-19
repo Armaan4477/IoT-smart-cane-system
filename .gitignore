@@ -1,0 +1,8 @@
+.DS_Store
+/esp32-nextjs/node_modules
+esp32-nextjs/.env.local
+/android/.idea
+/android/app/release
+.venv
+/mds
+/nextjs_api/node_modules
